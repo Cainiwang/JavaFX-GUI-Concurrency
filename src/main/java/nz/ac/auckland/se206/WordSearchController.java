@@ -1,6 +1,9 @@
 package nz.ac.auckland.se206;
 
 import java.io.IOException;
+
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Accordion;
 import javafx.scene.control.Alert;
@@ -43,29 +46,71 @@ public class WordSearchController {
     }
 
     long startTime = System.currentTimeMillis();
+    Task<Void> backgroundTask = new Task<Void>() {
+      @Override
+      protected Void call() throws Exception {
+        searchForDefinitionsButton.setDisable(true);
+        for (int s = 0; s < numberOfWords; s++) {
+          String query = queryWords[s];
+          try {
+            WordInfo wordResult = DictionaryLookup.searchWordInfo(query);
+            System.out.println("\"" + wordResult.getWord() + "\" has " + wordResult.getNumberOfEntries()
+                + " dictionary entries.");
 
-    for (int s = 0; s < numberOfWords; s++) {
-      String query = queryWords[s];
-      try {
-        WordInfo wordResult = DictionaryLookup.searchWordInfo(query);
-        System.out.println("\"" + wordResult.getWord() + "\" has " + wordResult.getNumberOfEntries()
-            + " dictionary entries.");
+            Platform.runLater(() -> {
+              TitledPane pane = WordPane.generateWordPane(query, wordResult);
+              resultsAccordion.getPanes().add(pane);
+            });
+            // TitledPane pane = WordPane.generateWordPane(query, wordResult);
+            // resultsAccordion.getPanes().add(pane);
+          } catch (IOException e) {
+            e.printStackTrace();
+          } catch (WordNotFoundException e) {
+            System.out.println("\"" + e.getWord() + "\" has problems: " + e.getMessage());
+            Platform.runLater(() -> {
+              TitledPane pane = WordPane.generateErrorPane(e);
+              resultsAccordion.getPanes().add(pane);
+            });
+            // TitledPane pane = WordPane.generateErrorPane(e);
+            // resultsAccordion.getPanes().add(pane);
+          }
+          progressBar.setProgress((s + 1.0) / numberOfWords);
+        }
 
-        TitledPane pane = WordPane.generateWordPane(query, wordResult);
-        resultsAccordion.getPanes().add(pane);
-      } catch (IOException e) {
-        e.printStackTrace();
-      } catch (WordNotFoundException e) {
-        System.out.println("\"" + e.getWord() + "\" has problems: " + e.getMessage());
-        TitledPane pane = WordPane.generateErrorPane(e);
-        resultsAccordion.getPanes().add(pane);
+        long time = System.currentTimeMillis() - startTime;
+        System.out.println();
+        System.out.println("Search took " + time + "ms");
+        searchForDefinitionsButton.setDisable(false);
+        return null;
       }
-      progressBar.setProgress((s + 1.0) / numberOfWords);
-    }
+    };
+    Thread backgroundThread = new Thread(backgroundTask);
+    backgroundThread.start();
 
-    long time = System.currentTimeMillis() - startTime;
-    System.out.println();
-    System.out.println("Search took " + time + "ms");
+    // for (int s = 0; s < numberOfWords; s++) {
+    // String query = queryWords[s];
+    // try {
+    // WordInfo wordResult = DictionaryLookup.searchWordInfo(query);
+    // System.out.println("\"" + wordResult.getWord() + "\" has " +
+    // wordResult.getNumberOfEntries()
+    // + " dictionary entries.");
+
+    // TitledPane pane = WordPane.generateWordPane(query, wordResult);
+    // resultsAccordion.getPanes().add(pane);
+    // } catch (IOException e) {
+    // e.printStackTrace();
+    // } catch (WordNotFoundException e) {
+    // System.out.println("\"" + e.getWord() + "\" has problems: " +
+    // e.getMessage());
+    // TitledPane pane = WordPane.generateErrorPane(e);
+    // resultsAccordion.getPanes().add(pane);
+    // }
+    // progressBar.setProgress((s + 1.0) / numberOfWords);
+    // }
+
+    // long time = System.currentTimeMillis() - startTime;
+    // System.out.println();
+    // System.out.println("Search took " + time + "ms");
+    // }
   }
-
 }
